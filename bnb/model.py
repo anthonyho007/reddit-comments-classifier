@@ -38,45 +38,35 @@ class BernoulliNB:
         # P(c)
         prob_class = Xc.shape[0] / X.shape[0]
 
-        # number of word x in class c
+        # number of sample where x is in class c
         Nxc = np.asarray(Xc.sum(axis=0))
 
-        # number of word x not in class c
+        # number of sample where x not in class c
         Nxcp = np.asarray(Xcp.sum(axis=0))
 
         n_feat = Nxc.shape[1]
 
-        # number of word x' in class c
-        s_nxc = Nxc.sum()
-        Nxpc = np.zeros(n_feat)
-        for i in range(n_feat):
-            Nxpc[i] = s_nxc - Nxc[0][i]
+        # number of samples in class c
+        Nsc = Xc.shape[0]
 
-        # number of word x' in class c'
-        s_nxcp = Nxcp.sum()
-        Nxpcp = np.zeros(n_feat)
-        for i in range(n_feat):
-            Nxpcp[i] = s_nxcp - Nxc[0][i]
+        # number of samples not in class c
+        Nscp = Xcp.shape[0]
 
-        # P(x | c)
-        prob_x_c = (Nxc + 1) / (Nxpc + 2)
+        # P(x | c) with lapace smoothing
+        prob_x_c = (Nxc + 1) / (Nsc + 2)
 
-        # P(x | c')
-        prob_x_cp = (Nxcp + 1) / (Nxpcp  + 2)
+        # P(x | c') with lapace smoothing
+        prob_x_cp = (Nxcp + 1) / (Nscp  + 2)
 
         return prob_class, prob_x_c.reshape(n_feat), prob_x_cp.reshape(n_feat)
 
     def predict(self, X):
         X = check_array(X, accept_sparse="csr")
         X = self.binarize(X)
-        preds = []
         one = np.ones(X.shape[1])
         l1 = np.log(self.prob_x_c/self.prob_x_cp).T
         l2 = np.log((1-self.prob_x_c)/(1-self.prob_x_cp)).T
-        for i in range(X.shape[0]):
-            x = X.getrow(i)
-            pred = np.argmax(np.log(self.prob_class) + \
-                + np.sum(x @l1) \
-                + (one - x) @ l2)
-            preds.append(pred)
-        return np.asarray(preds)
+
+        pred = np.log(self.prob_class/(1-self.prob_class)) + \
+                + (X @ l1 + (one - X) @ l2)
+        return np.argmax(pred, axis=1)
